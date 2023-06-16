@@ -7,12 +7,4 @@ pub fn stats(silent: bool, num_read: usize, total_bytes: &mut usize, last: bool)
             eprintln!();
         }
     }
-
-    // if let Err(e) = writer.write_all(&buffer[..num_read]) {
-    //     if e.kind() == ErrorKind::BrokenPipe {
-    //         break;
-    //     }
-    //     return Err(e);
-    //     //std::process::exit(1);
-    // }    
 }
