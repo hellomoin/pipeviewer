@@ -1,24 +1,31 @@
 use std::io::Result;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::{Sender,Receiver};
 
-pub fn stats(silent: bool, quit: Arc<Mutex<bool>>) -> Result<()> {
+pub fn stats(silent: bool, stats_rx: Receiver<Vec<u8>>, write_tx: Sender<Vec<u8>>) -> Result<()> {
     let mut total_bytes = 0;
-
     loop {
-        // todo: receive the vector of bytes
-        let buffer: Vec<u8> = Vec::new();
-        total_bytes +=  buffer.len();
+        let buffer = stats_rx.recv().unwrap();
+        let num_bytes = buffer.len();
+
+        total_bytes +=  num_bytes;
 
         if !silent {
             eprint!("\r{}", total_bytes);
         }
 
-        let quit = quit.lock().unwrap();
-        if *quit {
+        if write_tx.send(buffer).is_err() {
+            break;
+        }
+
+        if num_bytes == 0 {
             break;
         }
     }
-    eprintln!();
+
+    if !silent {
+        eprintln!();
+    }
+
     Ok(())
 }
 

@@ -1,6 +1,6 @@
 use std::{io::{self, ErrorKind,BufWriter, Write, Result}};
 use std::fs::File;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Receiver;
 
 pub struct Writer {
     writer: Box<dyn Write>,
@@ -19,16 +19,12 @@ impl Writer {
         })
     }
 
-    pub fn write(&mut self, quit: Arc<Mutex<bool>>) -> Result<()> {
+    pub fn write(&mut self, write_rx: Receiver<Vec<u8>>) -> Result<()> {
         loop {
-            let buffer: Vec<u8> = Vec::new();
-
-            // Need this block to unlock quit when released.
-            {
-                let quit = quit.lock().unwrap();
-                if *quit {
-                    break;
-                }
+            let buffer = write_rx.recv().unwrap();
+            
+            if buffer.is_empty() {
+                break;
             }
 
             if let Err(e) = self.writer.write_all(&buffer) {
@@ -39,16 +35,17 @@ impl Writer {
                 return Err(e);
             }
 
+            break;
         }
         Ok(())
     }
 }
 
 
-pub fn write_loop(outfile: &str, quit: Arc<Mutex<bool>>) -> Result<()> {
+pub fn write_loop(outfile: &str, write_rx: Receiver<Vec<u8>>) -> Result<()> {
     let mut writer = Writer::new(outfile)?;
 
-    writer.write(quit)?;
+    writer.write(write_rx)?;
 
     Ok(())
 }

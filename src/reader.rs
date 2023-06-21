@@ -1,8 +1,8 @@
 use crate::CHUNK_SIZE;
 
-use std::{io::{self, BufReader, Read, Result}, ops::Bound};
+use std::{io::{self, BufReader, Read, Result}};
 use std::fs::File;
-use std::sync::{Arc, Mutex};
+use std::sync::mpsc::Sender;
 
 pub struct Reader {
     reader: Box<dyn Read>,
@@ -21,7 +21,7 @@ impl Reader {
             })
         }
 
-        pub fn read(&mut self, quit: Arc<Mutex<bool>>) -> Result<()> {
+        pub fn read(&mut self, stats_tx: Sender<Vec<u8>>) -> Result<()> {
             let mut buffer = [0; CHUNK_SIZE];
         
             loop {
@@ -31,18 +31,17 @@ impl Reader {
                     Err(_) => break,
                 };
 
-                // Vec::from(&buffer[..num_read])
+                if stats_tx.send(Vec::from(&buffer[..num_read])).is_err() {
+                    break;
+                }
             }
-
-            let mut quit = quit.lock().unwrap();
-            *quit = true;
-
+            let _ = stats_tx.send(Vec::new()); // send empty buffer
             Ok(())
         }
 
 }
 
-pub fn read_loop(infile: &str, quit: Arc<Mutex<bool>>) -> Result<()> {
+pub fn read_loop(infile: &str, stats_tx: Sender<Vec<u8>>) -> Result<()> {
     let mut reader = match Reader::new(infile) {
         Ok(x) => x,
         Err(x) => {
@@ -51,7 +50,7 @@ pub fn read_loop(infile: &str, quit: Arc<Mutex<bool>>) -> Result<()> {
         }
     };
 
-    reader.read(quit)?;
+    reader.read(stats_tx)?;
 
     Ok(())
 }
